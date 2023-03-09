@@ -15,7 +15,7 @@ WAITING_FRAME_HEAD_2 = 2
 READING_DATA = 3
 
 # /dev/pts/3 on Ubuntu & /dev/ttys003 on MacOS
-PORT = '/dev/pts/3' if platform == 'linux' else '/dev/ttys003'
+PORT = '/dev/pts/3' if platform == 'linux' else ('COM2' if platform == 'win32' else '/dev/ttys003')
 
 def timer(tol=1):
     def decorator(func):
@@ -53,6 +53,9 @@ class MY_SIMU_POD:
         self.data_buf = bytearray()
 
     def gen_down_msg(self):
+        msg = pack('<BBBhIhhhBhh', 0, 0, 0, int(self.zoom * 100), 0, int(self.pitch * 100), int(self.yaw * 100), 0, 0, 0, 0)
+        check_sum = sum(msg)
+        return msg + pack('<B', check_sum & 0xff)
         return pack('<hh', int(self.pitch * 100), int(self.yaw * 100))
     
     def read_data(self):
@@ -68,11 +71,31 @@ class MY_SIMU_POD:
                         data_buf = bytearray()
                 elif self.state == READING_DATA:
                     data_buf.append(data[0])
-                    if len(data_buf) == 4:
-                        print('Up buffer: ', FRAME_HEAD, data_buf)
-                        up_data = unpack('<hh', data_buf)
-                        print('Up data: ', up_data)
-                        self.expected_pitch, self.expected_yaw = [data / 100 for data in up_data]
+                    if len(data_buf) == 30:
+                        # print('Up buffer: ', FRAME_HEAD, data_buf)
+                        up_data = unpack('<xBhh' + 'x' * 10 + 'B' + 'x' * 11 + 'H', data_buf)
+                        # print('Up data: ', up_data)
+                        order = up_data[0]
+                        pitch_val = up_data[1] / 100
+                        yaw_val = up_data[2] / 100
+                        laser_setting = up_data[3]
+                        check_sum = up_data[4]
+                        if check_sum != sum(data_buf[:-2]):
+                            assert 0
+                        elif check_sum > 0:
+                            pass
+                            print(data_buf.hex())
+                            # print(f'Check sum right: {check_sum}')
+
+                        if order == 0x1D:
+                            self.yaw -= 0.01
+                        elif order == 0x1F:
+                            self.yaw += 0.01
+                        elif order == 0x21:
+                            self.pitch -= 0.01
+                        elif order == 0x23:
+                            self.pitch += 0.01
+
                         self.state = WAITING_FRAME_HEAD_1
 
             if self.state == WAITING_FRAME_HEAD_1:
@@ -95,11 +118,11 @@ class MY_SIMU_POD:
         t_write.start()
     
     def print_pod(self):
-        system('clear')
+        # system('clear')
         print('-' * 40)
         print(f'@ {time() - self.start_time:.2f}')
-        print(f'p: {self.pitch:.1f}deg now -> {self.expected_pitch:.1f}deg expected')
-        print(f'y: {self.yaw:.1f}deg now -> {self.expected_yaw:.1f}deg expected')
+        print(f'p: {self.pitch:.2f}deg now -> {self.expected_pitch:.1f}deg expected')
+        print(f'y: {self.yaw:.2f}deg now -> {self.expected_yaw:.1f}deg expected')
         print('-' * 40)
     
     def adjust(self, val, expected_val):
@@ -114,9 +137,10 @@ class MY_SIMU_POD:
 
     @timer(tol=1)
     def spin_once(self):
-        self.print_pod()
-        self.pitch = self.adjust(self.pitch, self.expected_pitch)
-        self.yaw = self.adjust(self.yaw, self.expected_yaw)
+        pass
+        # self.print_pod()
+        # self.pitch = self.adjust(self.pitch, self.expected_pitch)
+        # self.yaw = self.adjust(self.yaw, self.expected_yaw)
 
     def spin(self):
         self.start_read()

@@ -16,7 +16,7 @@ READING_DATA = 3
 
 # /dev/pts/2 on Ubuntu & /dev/ttys002 on MacOS
 # using socat to generate fake serial ports `socat -d -d pty pty`
-PORT = '/dev/pts/2' if platform == 'linux' else '/dev/ttys002'
+PORT = '/dev/pts/2' if platform == 'linux' else ('COM2' if platform == 'win32' else '/dev/ttys002')
 
 
 class POD_COMM:
@@ -55,11 +55,12 @@ class POD_COMM:
                         data_buf = bytearray()
                 elif self.state == READING_DATA:
                     data_buf.append(data[0])
-                    if len(data_buf) == 4:
+                    if len(data_buf) == 21:
                         print('Down buffer: ', FRAME_HEAD, data_buf)
-                        down_data = unpack('<hh', data_buf)
-                        print('Down data: ', down_data)
-                        self.pitch, self.yaw = [data / 100 for data in down_data]
+                        sleep(1)
+                        # down_data = unpack('<hh', data_buf)
+                        # print('Down data: ', down_data)
+                        # self.pitch, self.yaw = [data / 100 for data in down_data]
                         self.state = WAITING_FRAME_HEAD_1
 
             if self.state == WAITING_FRAME_HEAD_1:
