@@ -118,7 +118,7 @@ class MY_SIMU_POD:
         t_write.start()
     
     def print_pod(self):
-        # system('clear')
+        print('\x1b[H')
         print('-' * 40)
         print(f'@ {time() - self.start_time:.2f}')
         print(f'p: {self.pitch:.2f}deg now -> {self.expected_pitch:.1f}deg expected')
@@ -135,18 +135,21 @@ class MY_SIMU_POD:
         elif diff < tol:
             return val - tol
 
-    @timer(tol=1)
+    @timer(tol=0.04)
     def spin_once(self):
-        pass
-        # self.print_pod()
+        self.print_pod()
         # self.pitch = self.adjust(self.pitch, self.expected_pitch)
         # self.yaw = self.adjust(self.yaw, self.expected_yaw)
+        pass
 
     def spin(self):
         self.start_read()
         self.start_write()
         while True:
-            self.spin_once()
+            try:
+                self.spin_once()
+            except KeyboardInterrupt:
+                exit()
 
 
 if __name__ == '__main__':
